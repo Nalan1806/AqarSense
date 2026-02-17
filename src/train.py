@@ -34,7 +34,7 @@ from src.preprocessing import prepare_features, build_preprocessor
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DATA_PATH = PROJECT_ROOT / "data" / "dubai_properties.csv"
+DATA_PATH = PROJECT_ROOT / "Data" / "dubai_properties.csv"
 MODEL_DIR = PROJECT_ROOT / "models"
 MODEL_PATH = MODEL_DIR / "ridge_model.pkl"
 

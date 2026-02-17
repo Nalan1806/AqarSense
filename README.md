@@ -1,94 +1,188 @@
-# UAE Rental Price Prediction
+# AqarSense — UAE Rental Price Prediction
+
+**Intelligent Rental Estimation for UAE Real Estate**
+
+AqarSense is an end-to-end machine learning system designed to estimate annual rental prices (AED) for UAE properties using real-world listing data.
+
+Built with a focus on clean preprocessing pipelines, leakage prevention, reproducible validation, and practical deployment through a Streamlit interface.
+
+---
 
 ## Problem Statement
 
-Predict **annual rental prices (AED)** for properties in the UAE using real-world real estate listing data (73,742 rows, 17 columns). This is a supervised regression problem evaluated using RMSE.
+Predict **annual rental prices (AED)** for properties across the UAE using structured listing data (73,742 rows, 17 columns).
+
+This is a supervised regression problem evaluated using RMSE.
+
+---
+
+## Dataset Characteristics
+
+- Real-world listing data  
+- Highly right-skewed rent distribution  
+- Extreme luxury outliers (max ≈ 55 million AED)  
+- No transactional history  
+- No amenity-level or building-quality features  
+
+These characteristics significantly influence model error behavior.
+
+---
 
 ## Methodology
 
 | Step | Detail |
-|---|---|
-| **Data cleaning** | Drop leakage columns (`Rent_per_sqft`, `Rent_category`, `Frequency`, `Purpose`) and high-cardinality text (`Address`) |
-| **Preprocessing** | `ColumnTransformer` — median imputation for numerics; most-frequent imputation + one-hot encoding for categoricals |
-| **Target transform** | `log1p` applied to `Rent` to stabilise variance under extreme right-skew; predictions are back-transformed with `expm1` |
-| **Model** | Ridge Regression (`alpha=1.0`) chosen after comparing Linear Regression, Ridge, Random Forest, and Gradient Boosting |
-| **Validation** | 5-fold cross-validation (`KFold`, `shuffle=True`, `random_state=42`) — mean log-RMSE ≈ 0.480, std ≈ 0.014 |
+|------|--------|
+| **Leakage prevention** | Dropped `Rent_per_sqft`, `Rent_category`, `Frequency`, `Purpose` |
+| **High-cardinality removal** | Dropped raw `Address` field |
+| **Preprocessing** | `ColumnTransformer` with median imputation (numeric) and most-frequent + OneHotEncoder (categorical) |
+| **Target transformation** | `log1p(Rent)` to stabilize variance under heavy right-skew |
+| **Model comparison** | Linear Regression, Ridge, Random Forest, Gradient Boosting |
+| **Final model** | Ridge Regression (`alpha=1.0`) |
+| **Validation** | 5-fold cross-validation (`KFold`, shuffle=True, random_state=42) |
+
+---
+
+## Why Log Transformation?
+
+Rental prices exhibit extreme right-skew due to luxury listings.
+
+Training directly on raw AED values causes:
+
+- Instability  
+- High sensitivity to outliers  
+- Poor generalization  
+
+Applying `log1p`:
+
+- Stabilizes variance  
+- Reduces impact of extreme values  
+- Improves model stability  
+
+Predictions are converted back using `expm1()`.
+
+---
 
 ## Why Ridge Regression?
 
-Tree-based models (Random Forest, Gradient Boosting) suffered instability after exponential back-transformation of log-space predictions, producing worse AED-scale RMSE than Ridge. Ridge's L2 regularisation handles the high-dimensional one-hot encoded feature space gracefully and provides the best balance of stability, generalizability, and interpretability.
+Tree-based models (Random Forest, Gradient Boosting) showed instability after exponential back-transformation from log space.
+
+Ridge Regression:
+
+- Handles high-dimensional one-hot encoded features well  
+- Provides stable generalization  
+- Prevents coefficient explosion  
+- Delivered the best cross-validated performance  
+
+---
+
+## Cross-Validation Results
+
+| Metric | Value |
+|--------|--------|
+| Mean log-RMSE | 0.480 |
+| Std log-RMSE | 0.014 |
+| Approx multiplicative error | ×1.62 |
+
+### Interpretation
+
+A multiplicative error of ×1.62 means predictions are typically within **±62% of the true rent**.
+
+Given the dataset's characteristics — highly skewed listings, absence of transaction-level data, and extreme luxury outliers — this error range is consistent with real-world scraped real estate datasets.
+
+Importantly:
+
+- The low standard deviation (0.014) across folds indicates **stable generalization**
+- Performance is consistent across multiple data splits
+- The model is not dependent on a single validation split
+
+---
+
+## Engineering Highlights
+
+- Full preprocessing encapsulated inside pipeline  
+- No data leakage  
+- Reproducible cross-validation  
+- Modular training and inference separation  
+- Production-ready Streamlit interface  
+- Clean project structure  
+
+---
 
 ## Project Structure
 
-```
 rent-prediction-uae/
 ├── data/
-│   └── dubai_properties.csv
+│ └── dubai_properties.csv
 ├── notebooks/
-│   └── exploration.ipynb       # Full experiment notebook 
+│ └── exploration.ipynb
 ├── src/
-│   ├── __init__.py
-│   ├── preprocessing.py        # Feature prep & ColumnTransformer
-│   ├── train.py                # Training + CV + model saving
-│   └── predict.py              # Load model & predict single property
+│ ├── init.py
+│ ├── preprocessing.py
+│ ├── train.py
+│ └── predict.py
 ├── models/
-│   └── ridge_model.pkl         # Saved pipeline (created by train.py)
-├── app.py                      # FastAPI serving endpoint
+│ └── ridge_model.pkl
+├── app.py
 ├── requirements.txt
 └── README.md
-```
 
-## Usage
+
+---
+
+## Running AqarSense (Streamlit App)
 
 ### 1. Install dependencies
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Train the model
-
-```bash
+2. Train the model
 python -m src.train
-```
+This will:
 
-This will run 5-fold cross-validation, train the final Ridge pipeline on the full dataset, and save it to `models/ridge_model.pkl`.
+Run 5-fold cross-validation
 
-### 3. Predict from Python
+Train the final Ridge pipeline on full dataset
 
-```python
-from src.predict import predict_rent
+Save model to models/ridge_model.pkl
 
-rent = predict_rent({
-    "City": "Dubai",
-    "Location": "Downtown Dubai",
-    "Beds": 2,
-    "Baths": 2,
-    "Type": "Apartment",
-    "Area_in_sqft": 1200,
-    "Latitude": 25.1972,
-    "Longitude": 55.2744,
-    "Furnishing": "Furnished",
-})
-print(f"Predicted annual rent: AED {rent:,.2f}")
-```
+3. Launch the Streamlit app
+streamlit run app.py
+The application will open in your browser, allowing you to:
 
-### 4. Serve via API
+Select city and location
 
-```bash
-uvicorn app:app --reload
-```
+Enter property details
 
-Then POST to `http://127.0.0.1:8000/predict` with a JSON body matching the property schema.
+View predicted rent
 
-## Cross-Validation Results
+See confidence range
 
-| Metric | Value |
-|---|---|
-| Mean log-RMSE | 0.480 |
-| Std log-RMSE | 0.014 |
-| Approx multiplicative error | ×1.62 (predictions within ±62% of actual) |
+Explore rent distribution
 
-## License
+Visualize property location and rent heatmap
 
+Limitations
+Based on listing prices, not finalized transactions
+
+No building age, view quality, or amenity data
+
+No macroeconomic or time-based features
+
+Luxury outliers inflate RMSE
+
+Future improvements could include:
+
+Target encoding for high-cardinality features
+
+Spatial clustering features
+
+Hyperparameter tuning
+
+Transaction-level datasets
+
+Author
+AqarSense
+A project by Nalan Baburajan
+
+License
 MIT

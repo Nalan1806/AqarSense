@@ -17,7 +17,7 @@ from src.predict import predict_rent
 # Paths
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent
-DATA_PATH = PROJECT_ROOT / "data" / "dubai_properties.csv"
+DATA_PATH = PROJECT_ROOT / "Data" / "dubai_properties.csv"
 MODEL_PATH = PROJECT_ROOT / "models" / "ridge_model.pkl"
 BG_IMAGE_PATH = PROJECT_ROOT / "assets" / "AqarSense bg.jpg"
 
